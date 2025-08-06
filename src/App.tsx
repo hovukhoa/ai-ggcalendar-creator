@@ -21,7 +21,10 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string>('');
   const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
+  
   const [createStatus, setCreateStatus] = useState<CreateStatus>('idle');
+  const [createError, setCreateError] = useState<string>('');
+
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +45,7 @@ const App: React.FC = () => {
     setAnalysisError('');
     setEventDetails(null);
     setCreateStatus('idle'); // Reset create button state
+    setCreateError('');
 
     try {
       const apiResponse = await fetch('/api/analyze', {
@@ -93,6 +97,7 @@ const App: React.FC = () => {
   const handleCreateEvent = async () => {
     if (!eventDetails) return;
     setCreateStatus('loading');
+    setCreateError('');
 
     try {
       const response = await fetch('/api/create-event', {
@@ -110,10 +115,14 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error creating event:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể tạo sự kiện.';
+      setCreateError(errorMessage);
       setCreateStatus('error');
     } finally {
-        // Reset button after 3 seconds
-        setTimeout(() => setCreateStatus('idle'), 3000);
+        // Reset button after 3 seconds if it was not successful
+        if (createStatus !== 'success') {
+             setTimeout(() => setCreateStatus('idle'), 3000);
+        }
     }
   };
 
@@ -197,6 +206,7 @@ const App: React.FC = () => {
           <button onClick={handleCreateEvent} className={`btn btn-secondary ${createStatus === 'success' ? 'btn-success' : createStatus === 'error' ? 'btn-error' : ''}`} disabled={createStatus === 'loading'}>
             {getCreateButtonContent()}
           </button>
+          <p className="error-message" aria-live="polite">{createError}</p>
         </div>
       )}
     </div>
