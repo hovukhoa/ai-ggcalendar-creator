@@ -1,0 +1,185 @@
+:root {
+  --primary-color: #4a90e2;
+  --primary-hover-color: #357abd;
+  --background-color: #f4f7f9;
+  --container-bg-color: #ffffff;
+  --text-color: #333333;
+  --label-color: #555555;
+  --border-color: #dce1e6;
+  --error-color: #d9534f;
+  --success-color: #5cb85c;
+  --font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+#root {
+  width: 100%;
+  max-width: 600px;
+}
+
+.app-container {
+  background-color: var(--container-bg-color);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.title {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  color: var(--label-color);
+  margin-bottom: 0.5rem;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.btn {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  background-color: var(--primary-color);
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 50px; /* Ensure button height is consistent */
+}
+
+.btn:hover:not(:disabled) {
+  background-color: var(--primary-hover-color);
+  transform: translateY(-2px);
+}
+
+.btn:disabled {
+  background-color: #a0c7e8;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: var(--success-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #4a9d4a;
+}
+
+.btn-success {
+  background-color: var(--success-color) !important;
+  cursor: default !important;
+}
+
+.btn-error {
+  background-color: var(--error-color) !important;
+}
+.btn-error:hover:not(:disabled) {
+  background-color: #c9302c !important;
+}
+
+
+.error-message {
+  color: var(--error-color);
+  text-align: center;
+  margin-top: 1rem;
+  height: 1.2em;
+}
+
+.results-container {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  animation: fadeIn 0.5s;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 500px) {
+    .results-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

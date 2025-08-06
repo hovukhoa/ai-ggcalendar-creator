@@ -1,0 +1,4 @@
+{
+  "name": "Event Creator from Text",
+  "description": "An app to analyze text, extract event details using Gemini, and create a Google Calendar event."
+}
