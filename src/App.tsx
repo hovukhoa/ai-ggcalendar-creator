@@ -1,214 +1,230 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
+import './App.css';
 
-// Interface for structured event data
-interface EventDetails {
-  title: string;
-  start: string; // ISO format for datetime-local input
-  end: string;   // ISO format for datetime-local input
-  description: string;
-  location: string;
-}
+// --- Component App Chính ---
+const App = () => {
+  // --- State Management ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
 
-// Type for create event status
-type CreateStatus = 'idle' | 'loading' | 'success' | 'error';
-
-const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [password, setPassword] = useState<string>('');
-  const [authError, setAuthError] = useState<string>('');
-
-  const [inputText, setInputText] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [analysisError, setAnalysisError] = useState<string>('');
-  const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
   
-  const [createStatus, setCreateStatus] = useState<CreateStatus>('idle');
-  const [createError, setCreateError] = useState<string>('');
+  const [analysisResult, setAnalysisResult] = useState({
+    title: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    description: ''
+  });
+  const [showResults, setShowResults] = useState(false);
 
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  // --- Gemini API Initialization for Vite ---
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const ai = useMemo(() => {
+      if (apiKey) {
+          return new GoogleGenAI({ apiKey });
+      }
+      return null;
+  }, [apiKey]);
+  
+  // --- Xử lý Xác thực ---
+  const handleAuthenticate = () => {
     if (password === '2107') {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
-      setAuthError('Mật khẩu không chính xác.');
+      setAuthError('Mật khẩu không chính xác. Vui lòng thử lại.');
+      setPassword('');
     }
   };
 
-  const handleAnalyze = async () => {
+  // --- Xử lý Phân tích Văn bản ---
+  const handleAnalyzeText = async () => {
+    if (!ai) {
+        setAnalysisError('Vui lòng cấu hình VITE_GEMINI_API_KEY trong biến môi trường.');
+        return;
+    }
     if (!inputText.trim()) {
       setAnalysisError('Vui lòng nhập văn bản để phân tích.');
       return;
     }
     setIsLoading(true);
     setAnalysisError('');
-    setEventDetails(null);
-    setCreateStatus('idle'); // Reset create button state
-    setCreateError('');
+    setShowResults(false);
+
+    const today = new Date();
+    const todayString = today.toLocaleDateString('vi-VN', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    const systemInstruction = `Bạn là một trợ lý thông minh chuyên phân tích văn bản tiếng Việt để trích xuất thông tin sự kiện. Nhiệm vụ của bạn là điền vào một biểu mẫu JSON dựa trên văn bản được cung cấp. Hôm nay là: ${todayString}. Luôn tuân thủ các quy tắc sau: 1. 'date' phải ở định dạng YYYY-MM-DD. 2. 'startTime' và 'endTime' phải ở định dạng HH:mm (24-giờ). 3. Nếu không có thời gian kết thúc, mặc định sự kiện kéo dài 1 giờ. 4. 'title' phải là một bản tóm tắt ngắn gọn của sự kiện. 5. 'description' phải bao gồm tất cả các chi tiết còn lại như địa điểm, nội dung. Nếu không có, hãy để trống.`;
+    
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            title: { type: Type.STRING, description: 'Tiêu đề ngắn gọn của sự kiện.' },
+            date: { type: Type.STRING, description: 'Ngày diễn ra sự kiện theo định dạng YYYY-MM-DD.' },
+            startTime: { type: Type.STRING, description: 'Thời gian bắt đầu sự kiện theo định dạng HH:mm.' },
+            endTime: { type: Type.STRING, description: 'Thời gian kết thúc sự kiện theo định dạng HH:mm.' },
+            description: { type: Type.STRING, description: 'Mô tả chi tiết sự kiện, bao gồm địa điểm, nội dung, v.v.' },
+        },
+        required: ['title', 'date', 'startTime', 'endTime', 'description'],
+    };
 
     try {
-      const apiResponse = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputText }),
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: inputText,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
       });
-
-      if (!apiResponse.ok) {
-        const errorData = await apiResponse.json().catch(() => ({ message: 'Lỗi không xác định từ server.' }));
-        throw new Error(errorData.message || `Lỗi server: ${apiResponse.statusText}`);
-      }
       
-      const parsed = await apiResponse.json();
-
-      const startDate = new Date(`${parsed.ngay_bat_dau}T${parsed.gio_bat_dau}`);
-      if (isNaN(startDate.getTime())) {
-          throw new Error("Ngày hoặc giờ không hợp lệ được trả về từ AI.");
-      }
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
-
-      const formatForInput = (date: Date) => {
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const month = pad(date.getMonth() + 1);
-        const day = pad(date.getDate());
-        const hours = pad(date.getHours());
-        const minutes = pad(date.getMinutes());
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-      };
-
-      setEventDetails({
-        title: parsed.tieu_de || '',
-        start: formatForInput(startDate),
-        end: formatForInput(endDate),
-        location: parsed.dia_diem || '',
-        description: parsed.ghi_chu || '',
-      });
+      const resultJson = JSON.parse(response.text);
+      setAnalysisResult(resultJson);
+      setShowResults(true);
 
     } catch (error) {
-      console.error("Error during analysis:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Không thể phân tích văn bản.';
-      setAnalysisError(`${errorMessage} Vui lòng thử lại.`);
+      console.error("Lỗi phân tích:", error);
+      setAnalysisError('Không thể phân tích văn bản. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
   };
+  
+  // --- Cập nhật kết quả khi người dùng chỉnh sửa ---
+  const handleResultChange = (e) => {
+      const { name, value } = e.target;
+      setAnalysisResult(prev => ({...prev, [name]: value}));
+  }
 
-  const handleCreateEvent = async () => {
-    if (!eventDetails) return;
-    setCreateStatus('loading');
-    setCreateError('');
+  // --- Tự động tạo liên kết Google Calendar khi kết quả thay đổi ---
+  const calendarLink = useMemo(() => {
+      const { title, date, startTime, endTime, description } = analysisResult;
+      if (!title || !date || !startTime || !endTime) {
+          return '';
+      }
 
-    try {
-      const response = await fetch('/api/create-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventDetails),
+      // Format YYYY-MM-DDTHH:mm:ss to YYYYMMDDTHHMMSS
+      const formatDateTime = (d, t) => {
+          if(!d || !t) return '';
+          return `${d.replace(/-/g, '')}T${t.replace(/:/g, '')}00`;
+      }
+
+      const startDate = formatDateTime(date, startTime);
+      const endDate = formatDateTime(date, endTime);
+      
+      const baseUrl = 'https://www.google.com/calendar/render?action=TEMPLATE';
+      const params = new URLSearchParams({
+          text: title,
+          dates: `${startDate}/${endDate}`,
+          details: description,
+          ctz: 'Asia/Ho_Chi_Minh' // Múi giờ Việt Nam
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định từ server.' }));
-        throw new Error(errorData.message || `Lỗi server: ${response.statusText}`);
-      }
-      
-      setCreateStatus('success');
+      return `${baseUrl}&${params.toString()}`;
+  }, [analysisResult]);
 
-    } catch (error) {
-      console.error("Error creating event:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Không thể tạo sự kiện.';
-      setCreateError(errorMessage);
-      setCreateStatus('error');
-    } finally {
-        // Reset button after 3 seconds if it was not successful
-        if (createStatus !== 'success') {
-             setTimeout(() => setCreateStatus('idle'), 3000);
-        }
-    }
-  };
 
-  const getCreateButtonContent = () => {
-    switch(createStatus) {
-        case 'loading': return <div className="loading-spinner"></div>;
-        case 'success': return 'Đã tạo thành công!';
-        case 'error': return 'Tạo lỗi, thử lại?';
-        case 'idle':
-        default: return 'Gửi lên Calendar';
-    }
-  };
-
+  // --- Render Giao diện ---
+  if (!apiKey) {
+      return (
+          <div className="app-container">
+              <h1>Lỗi Cấu Hình</h1>
+              <p className="error-message">
+                  Biến môi trường <strong>VITE_GEMINI_API_KEY</strong> chưa được thiết lập. Vui lòng thêm nó vào file .env hoặc cấu hình trên máy chủ của bạn.
+              </p>
+          </div>
+      );
+  }
 
   if (!isAuthenticated) {
     return (
       <div className="app-container">
-        <h1 className="title">Xác thực</h1>
-        <form onSubmit={handleLogin}>
+        <h1>Xác Thực</h1>
+        <div className="auth-container">
           <div className="form-group">
             <label htmlFor="password">Mật khẩu</label>
             <input
               type="password"
               id="password"
-              className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              aria-describedby="authError"
+              onKeyPress={(e) => e.key === 'Enter' && handleAuthenticate()}
+              autoFocus
             />
           </div>
-          <button type="submit" className="btn">Đăng nhập</button>
-          <p id="authError" className="error-message" aria-live="polite">{authError}</p>
-        </form>
+          {authError && <p className="error-message">{authError}</p>}
+          <button className="button" onClick={handleAuthenticate}>
+            Đăng nhập
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="app-container">
-      <h1 className="title">Trợ lý Tạo Sự kiện</h1>
-      <div className="form-group">
-        <label htmlFor="event-text">Nhập văn bản sự kiện</label>
-        <textarea
-          id="event-text"
-          className="textarea"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Ví dụ: Chiều mai họp lúc 15g30 tại hội trường về dự án mới..."
-          rows={5}
-        />
-      </div>
-      <button onClick={handleAnalyze} className="btn" disabled={isLoading}>
-        {isLoading ? <div className="loading-spinner"></div> : 'Phân tích'}
-      </button>
-      <p className="error-message" aria-live="polite">{analysisError}</p>
-
-      {eventDetails && (
-        <div className="results-container">
-          <div className="form-group">
-            <label htmlFor="title">Tiêu đề sự kiện</label>
-            <input id="title" type="text" className="input" value={eventDetails.title} onChange={e => setEventDetails({...eventDetails, title: e.target.value})} />
-          </div>
-          <div className="results-grid">
-            <div className="form-group">
-                <label htmlFor="start">Thời gian bắt đầu</label>
-                <input id="start" type="datetime-local" className="input" value={eventDetails.start} onChange={e => setEventDetails({...eventDetails, start: e.target.value})} />
-            </div>
-            <div className="form-group">
-                <label htmlFor="end">Thời gian kết thúc</label>
-                <input id="end" type="datetime-local" className="input" value={eventDetails.end} onChange={e => setEventDetails({...eventDetails, end: e.target.value})} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label htmlFor="location">Địa điểm</label>
-            <input id="location" type="text" className="input" value={eventDetails.location} onChange={e => setEventDetails({...eventDetails, location: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label htmlFor="description">Ghi chú</label>
-            <textarea id="description" className="textarea" value={eventDetails.description} onChange={e => setEventDetails({...eventDetails, description: e.target.value})} rows={3}></textarea>
-          </div>
-          <button onClick={handleCreateEvent} className={`btn btn-secondary ${createStatus === 'success' ? 'btn-success' : createStatus === 'error' ? 'btn-error' : ''}`} disabled={createStatus === 'loading'}>
-            {getCreateButtonContent()}
-          </button>
-          <p className="error-message" aria-live="polite">{createError}</p>
+      <h1>Trình Phân Tích & Tạo Sự Kiện Lịch</h1>
+      <div className="main-app">
+        <div className="form-group">
+          <label htmlFor="event-text">Nội dung sự kiện</label>
+          <textarea
+            id="event-text"
+            placeholder="Dán văn bản sự kiện của bạn ở đây... (ví dụ: Chiều mai họp lúc 15g30 tại hội trường về dự án mới)"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+          />
         </div>
-      )}
+        {analysisError && <p className="error-message">{analysisError}</p>}
+        <button className="button" onClick={handleAnalyzeText} disabled={isLoading}>
+          {isLoading ? <span className="loader"></span> : 'Phân Tích'}
+        </button>
+
+        {showResults && (
+          <div className="results-container">
+            <h2>Kết quả phân tích (có thể chỉnh sửa)</h2>
+            <div className="results-form-grid">
+              <div className="form-group grid-col-span-2">
+                <label htmlFor="title">Tiêu đề</label>
+                <input type="text" id="title" name="title" value={analysisResult.title} onChange={handleResultChange} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="date">Ngày</label>
+                <input type="date" id="date" name="date" value={analysisResult.date} onChange={handleResultChange} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="startTime">Bắt đầu</label>
+                <input type="time" id="startTime" name="startTime" value={analysisResult.startTime} onChange={handleResultChange} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="endTime">Kết thúc</label>
+                <input type="time" id="endTime" name="endTime" value={analysisResult.endTime} onChange={handleResultChange} />
+              </div>
+              <div className="form-group grid-col-span-2">
+                <label htmlFor="description">Mô tả / Ghi chú</label>
+                <textarea id="description" name="description" value={analysisResult.description} onChange={handleResultChange} />
+              </div>
+            </div>
+            
+            {calendarLink ? (
+                <a href={calendarLink} className="button calendar-button" target="_blank" rel="noopener noreferrer">
+                    Mở trong Google Calendar
+                </a>
+            ) : (
+                <button className="button calendar-button" disabled>
+                    Mở trong Google Calendar
+                </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

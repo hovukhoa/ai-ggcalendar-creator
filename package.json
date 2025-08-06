@@ -1,8 +1,7 @@
 {
-  "name": "gemini-calendar-assistant",
-  "version": "1.0.0",
-  "description": "Gemini-powered event creator for Google Calendar.",
+  "name": "gemini-event-parser-vite",
   "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,19 +10,14 @@
   },
   "dependencies": {
     "@google/genai": "^1.12.0",
-    "googleapis": "^142.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.2.0"
-  },
-  "engines": {
-    "node": "20.x"
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.1"
   }
 }
