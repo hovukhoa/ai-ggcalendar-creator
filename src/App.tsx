@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import './App.css';
 
 // --- Component App Chính ---
 const App = () => {
