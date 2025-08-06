@@ -12,8 +12,8 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
 
-    /* Let tsc emit for API routes, but Vite won't emit for frontend */
-    "noEmit": false, 
+    /* Vite handles file emissions, tsc only does type checking */
+    "noEmit": true, 
 
     /* Linting */
     "strict": true,
