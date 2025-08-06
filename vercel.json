@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/create-event.ts": {
+      "runtime": "nodejs18.x",
+      "memory": 256
+    },
+    "api/analyze.ts": {
+      "runtime": "nodejs18.x",
+      "memory": 256
+    }
+  }
+}

@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { GoogleGenAI, Type } from "@google/genai";
 
 // Interface for structured event data
 interface EventDetails {
@@ -25,8 +24,6 @@ const App: React.FC = () => {
   const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
   const [createStatus, setCreateStatus] = useState<CreateStatus>('idle');
 
-  const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY as string }), []);
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === '2107') {
@@ -47,34 +44,19 @@ const App: React.FC = () => {
     setEventDetails(null);
     setCreateStatus('idle'); // Reset create button state
 
-    const today = new Date().toLocaleDateString('vi-VN');
-    const systemInstruction = `Bạn là một trợ lý thông minh chuyên trích xuất thông tin sự kiện từ văn bản tiếng Việt. Hôm nay là ${today}. Dựa vào văn bản được cung cấp, hãy trích xuất các thông tin. Mặc định một sự kiện kéo dài 1 giờ nếu không có thời gian kết thúc. Luôn trả về kết quả dưới dạng JSON theo schema đã cho.`;
-
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        tieu_de: { type: Type.STRING, description: "Tiêu đề ngắn gọn, súc tích cho sự kiện." },
-        ngay_bat_dau: { type: Type.STRING, description: "Ngày bắt đầu sự kiện (YYYY-MM-DD). Hiểu các từ như 'ngày mai'." },
-        gio_bat_dau: { type: Type.STRING, description: "Giờ bắt đầu sự kiện (HH:mm)." },
-        dia_diem: { type: Type.STRING, description: "Địa điểm diễn ra sự kiện." },
-        ghi_chu: { type: Type.STRING, description: "Các chi tiết hoặc ghi chú liên quan khác." },
-      },
-      required: ["tieu_de", "ngay_bat_dau", "gio_bat_dau"],
-    };
-
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: inputText,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: schema,
-        },
+      const apiResponse = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputText }),
       });
 
-      const resultText = response.text.trim();
-      const parsed = JSON.parse(resultText);
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json().catch(() => ({ message: 'Lỗi không xác định từ server.' }));
+        throw new Error(errorData.message || `Lỗi server: ${apiResponse.statusText}`);
+      }
+      
+      const parsed = await apiResponse.json();
 
       const startDate = new Date(`${parsed.ngay_bat_dau}T${parsed.gio_bat_dau}`);
       if (isNaN(startDate.getTime())) {
@@ -84,10 +66,12 @@ const App: React.FC = () => {
 
       const formatForInput = (date: Date) => {
         const pad = (n: number) => n.toString().padStart(2, '0');
-        const tzOffset = -date.getTimezoneOffset();
-        const diff = tzOffset >= 0 ? '+' : '-';
-        const newDate = new Date(date.getTime() + tzOffset * 60 * 1000);
-        return newDate.toISOString().slice(0, 16);
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
       };
 
       setEventDetails({
@@ -100,7 +84,8 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error during analysis:", error);
-      setAnalysisError('Không thể phân tích văn bản. Vui lòng thử lại.');
+      const errorMessage = error instanceof Error ? error.message : 'Không thể phân tích văn bản.';
+      setAnalysisError(`${errorMessage} Vui lòng thử lại.`);
     } finally {
       setIsLoading(false);
     }
