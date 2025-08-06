@@ -102,7 +102,8 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định từ server.' }));
+        throw new Error(errorData.message || `Lỗi server: ${response.statusText}`);
       }
       
       setCreateStatus('success');

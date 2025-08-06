@@ -1,10 +1,6 @@
 // This file should be placed in the /api directory of your project.
 // For example: /api/create-event.ts
 
-// Vercel magically handles turning this into a serverless function.
-// It expects a default export of a function that handles a request and returns a response.
-// We are using Request and Response objects that are standard in modern JS environments.
-
 import { google } from 'googleapis';
 
 export default async function handler(req: Request): Promise<Response> {
@@ -19,7 +15,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   if (!serviceAccountCreds || !calendarId) {
     console.error('Missing Google credentials or Calendar ID in environment variables.');
-    return new Response('Server configuration error.', { status: 500 });
+    return new Response(JSON.stringify({ message: 'Lỗi cấu hình server: Thiếu thông tin xác thực Google hoặc ID Lịch.' }), { status: 500, headers: {'Content-Type': 'application/json'} });
   }
 
   try {
@@ -40,7 +36,7 @@ export default async function handler(req: Request): Promise<Response> {
     const { title, start, end, description, location } = body;
 
     if (!title || !start || !end) {
-        return new Response('Missing required event details: title, start, end.', { status: 400 });
+        return new Response(JSON.stringify({ message: 'Thiếu thông tin sự kiện bắt buộc: tiêu đề, thời gian bắt đầu, thời gian kết thúc.' }), { status: 400, headers: {'Content-Type': 'application/json'} });
     }
     
     // 5. Create the event resource for the API
@@ -73,7 +69,7 @@ export default async function handler(req: Request): Promise<Response> {
   } catch (error) {
     console.error('Error creating calendar event:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(JSON.stringify({ message: 'Failed to create event.', error: errorMessage }), {
+    return new Response(JSON.stringify({ message: 'Không thể tạo sự kiện trên Calendar.', error: errorMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
